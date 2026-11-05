@@ -196,9 +196,41 @@ stream. A configured seed and the same call order reproduce the sequence.
 The prefix method joins a nonblank prefix, a hyphen, and a random UUID.
 These values are intended for tests and are not suitable as security tokens.
 
-All methods with a name or time window generate **version 3** UUIDs.
+The `generateUUID` overloads with a name or time window generate **version 3** UUIDs.
 They consume no random values and are independent of the seed and locale.
 Every `generateUUID` overload has a matching `generateUUIDAsString` overload.
+
+### UUID version 7
+
+`generateUUIDv7()` combines the configured clock's Unix timestamp in milliseconds
+with new random bits from the shared seeded stream. Use it for time-based test
+identifiers. You can also supply an explicit instant:
+
+```java
+var uuid = data.uuids().generateUUIDv7();
+String requestId = data.uuids().generateUUIDv7AsString();
+var atTime = data.uuids().generateUUIDv7(
+        Instant.parse("2026-11-05T10:15:30Z"));
+String atTimeText = data.uuids().generateUUIDv7AsString(
+        Instant.parse("2026-11-05T10:15:30Z"));
+```
+
+The [RFC 9562 layout](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7)
+stores the timestamp in 48 bits and uses 74 random bits, plus the version and
+variant fields. Supported timestamps start at the Unix epoch, inclusive, and
+end at 2^48 milliseconds, exclusive. Earlier or later instants are rejected
+before consuming random values. Sub-millisecond precision is discarded.
+
+Calls in the same millisecond draw new random bits and have random order.
+Clock rollback is reflected in the timestamp. There is no monotonic counter.
+For timestamp ordering across the supported range, compare canonical UUID
+strings or unsigned bytes; Java's UUID.compareTo uses signed long comparisons.
+
+For repeatable sequences, use the same seed, call order, and fixed clock
+or explicit instant. Repeating a call on one generator advances its random
+stream. For a stable ID within an epoch-aligned window, use the version 3
+`generateUUID(Duration)` API described below. Version 7 uses the same test-data
+random source as version 4 and is not intended for security tokens.
 
 ### Stable UUIDs within a time window
 

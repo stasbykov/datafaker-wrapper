@@ -8,12 +8,13 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Random version 4 UUIDs and deterministic version 3 UUIDs for test data.
+ * Random version 4, time-based version 7, and deterministic version 3 UUIDs for test data.
  * Time windows are aligned to the Unix epoch, with inclusive start and exclusive end.
  * All deterministic methods are independent of the random seed and consume no random values.
  */
 public final class UUIDDataGenerator {
     private static final BigInteger NANOS_PER_SECOND = BigInteger.valueOf(1_000_000_000L);
+    private static final Instant V7_TIMESTAMP_LIMIT = Instant.ofEpochMilli(1L << 48);
     private final GeneratorContext context;
 
     /** Creates a generator using shared settings. Prefer {@code data.uuids()}. */
@@ -29,6 +30,51 @@ public final class UUIDDataGenerator {
         long most = (context.nextLong() & 0xffffffffffff0fffL) | 0x0000000000004000L;
         long least = (context.nextLong() & 0x3fffffffffffffffL) | 0x8000000000000000L;
         return new UUID(most, least);
+    }
+
+    /**
+     * Generates a version 7 UUID using the configured clock and shared random stream.
+     * Example: {@code data.uuids().generateUUIDv7()}.
+     * Each call draws fresh random bits, including calls in the same millisecond.
+     *
+     * @return version 7 UUID with the current Unix millisecond timestamp
+     * @throws IllegalArgumentException if the clock is outside the supported timestamp range
+     */
+    public UUID generateUUIDv7() {
+        return generateUUIDv7(context.clock().instant());
+    }
+
+    /**
+     * Generates a UUID with the RFC 9562 version 7 layout: 48 timestamp bits and 74 random bits.
+     * Sub-millisecond precision is discarded. A fixed instant, seed, and call order reproduce
+     * the sequence. Equal timestamps have random order; clock rollback is reflected in the UUID.
+     * Compare canonical strings or unsigned bytes for timestamp ordering across the full range.
+     *
+     * @param instant timestamp from the Unix epoch (inclusive) to 2^48 milliseconds (exclusive)
+     * @return version 7 UUID for the supplied timestamp
+     * @throws NullPointerException if instant is null
+     * @throws IllegalArgumentException if instant is outside the unsigned 48-bit timestamp range
+     */
+    public UUID generateUUIDv7(Instant instant) {
+        Objects.requireNonNull(instant, "instant");
+        if (instant.isBefore(Instant.EPOCH) || !instant.isBefore(V7_TIMESTAMP_LIMIT)) {
+            throw new IllegalArgumentException("UUID v7 requires Unix milliseconds in [0, 2^48)");
+        }
+        long most = (instant.toEpochMilli() << 16)
+                | 0x0000000000007000L
+                | (context.nextLong() & 0x0000000000000fffL);
+        long least = (context.nextLong() & 0x3fffffffffffffffL) | 0x8000000000000000L;
+        return new UUID(most, least);
+    }
+
+    /** Returns a version 7 UUID for the configured clock as a canonical string. */
+    public String generateUUIDv7AsString() {
+        return generateUUIDv7().toString();
+    }
+
+    /** Returns a version 7 UUID for an explicit instant as a canonical string. */
+    public String generateUUIDv7AsString(Instant instant) {
+        return generateUUIDv7(instant).toString();
     }
 
     /**

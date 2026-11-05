@@ -1,0 +1,155 @@
+package io.github.stasbykov.datafaker;
+
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
+
+/**
+ * Random version 4 UUIDs and deterministic version 3 UUIDs for test data.
+ * Time windows are aligned to the Unix epoch, with inclusive start and exclusive end.
+ * All deterministic methods are independent of the random seed and consume no random values.
+ */
+public final class UUIDDataGenerator {
+    private static final BigInteger NANOS_PER_SECOND = BigInteger.valueOf(1_000_000_000L);
+    private final GeneratorContext context;
+
+    /** Creates a generator using shared settings. Prefer {@code data.uuids()}. */
+    public UUIDDataGenerator(GeneratorContext context) {
+        this.context = Objects.requireNonNull(context, "context");
+    }
+
+    /**
+     * Generates a version 4 UUID using the context's random stream.
+     * The configured seed and call order reproduce the sequence. Intended for test data.
+     */
+    public UUID generateUUID() {
+        long most = (context.nextLong() & 0xffffffffffff0fffL) | 0x0000000000004000L;
+        long least = (context.nextLong() & 0x3fffffffffffffffL) | 0x8000000000000000L;
+        return new UUID(most, least);
+    }
+
+    /**
+     * Returns the version 3 UUID for the current epoch-aligned window using the configured clock.
+     * Example: {@code data.uuids().generateUUID(Duration.ofMinutes(1))}.
+     * The same window index always gives the same UUID, across instances and seeds.
+     *
+     * @param bucketSize positive window duration, with nanosecond precision
+     * @return UUID for the current window
+     * @throws NullPointerException if bucketSize is null
+     * @throws IllegalArgumentException if bucketSize is zero or negative
+     */
+    public UUID generateUUID(Duration bucketSize) {
+        return generateUUID(context.clock().instant(), bucketSize);
+    }
+
+    /**
+     * Returns the version 3 UUID for an explicit instant's epoch-aligned window.
+     * Hashes the UTF-8 decimal representation of floor(epoch nanoseconds / window nanoseconds).
+     * Window size is not part of the hashed name: equal indices for different sizes share a UUID.
+     *
+     * @param instant instant to place into a window
+     * @param bucketSize positive window duration, with nanosecond precision
+     * @return UUID for the window index
+     * @throws NullPointerException if either argument is null
+     * @throws IllegalArgumentException if bucketSize is zero or negative
+     */
+    public UUID generateUUID(Instant instant, Duration bucketSize) {
+        Objects.requireNonNull(instant, "instant");
+        Objects.requireNonNull(bucketSize, "bucketSize");
+        if (bucketSize.isZero() || bucketSize.isNegative()) {
+            throw new IllegalArgumentException("bucketSize must be positive");
+        }
+        BigInteger time = toNanos(instant.getEpochSecond(), instant.getNano());
+        BigInteger size = toNanos(bucketSize.getSeconds(), bucketSize.getNano());
+        BigInteger[] division = time.divideAndRemainder(size);
+        BigInteger bucket = division[0];
+        if (division[1].signum() < 0) {
+            bucket = bucket.subtract(BigInteger.ONE);
+        }
+        return generateUUID(bucket.toString());
+    }
+
+    /**
+     * Generates a version 3 UUID from the exact UTF-8 string. Empty strings are allowed.
+     * Whitespace and case are significant. Example: {@code data.uuids().generateUUID("order-42")}.
+     *
+     * @param value nonnull name
+     * @return deterministic UUID
+     */
+    public UUID generateUUID(String value) {
+        Objects.requireNonNull(value, "value");
+        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Generates a version 3 UUID from ordered parts using length-prefixed text.
+     * Null parts have a separate marker. Embedded separators cannot merge adjacent parts.
+     * Nonnull parts use toString(), which must be stable for repeatable results.
+     * Types with equal text are equivalent; arrays are not recursively serialized.
+     * A one-part Object array uses this encoding, while a direct String uses the string overload.
+     *
+     * @param values nonnull array of parts; an empty array is allowed
+     * @return deterministic UUID for the encoded parts
+     */
+    public UUID generateUUID(Object... values) {
+        Objects.requireNonNull(values, "values");
+        StringBuilder name = new StringBuilder();
+        for (Object value : values) {
+            if (value == null) {
+                name.append("-1:");
+            } else {
+                String text = Objects.requireNonNull(value.toString(), "part.toString()");
+                name.append(text.length()).append(':').append(text);
+            }
+        }
+        return generateUUID(name.toString());
+    }
+
+    /**
+     * Generates a log identifier such as {@code test-550e8400-e29b-41d4-a716-446655440000}.
+     * The nonblank prefix is used exactly as supplied and joined to a random UUID with a hyphen.
+     *
+     * @param prefix nonnull prefix containing at least one non-whitespace character
+     * @return prefixed random UUID string
+     */
+    public String generateUUIDWithPrefix(String prefix) {
+        Objects.requireNonNull(prefix, "prefix");
+        if (prefix.isBlank()) {
+            throw new IllegalArgumentException("prefix must not be blank");
+        }
+        return prefix + "-" + generateUUID();
+    }
+
+    /** Returns a random version 4 UUID in its canonical string form. */
+    public String generateUUIDAsString() {
+        return generateUUID().toString();
+    }
+
+    /** Returns the current window's UUID as a string. See {@link #generateUUID(Duration)}. */
+    public String generateUUIDAsString(Duration bucketSize) {
+        return generateUUID(bucketSize).toString();
+    }
+
+    /** Returns an explicit instant's window UUID as a string. */
+    public String generateUUIDAsString(Instant instant, Duration bucketSize) {
+        return generateUUID(instant, bucketSize).toString();
+    }
+
+    /** Returns the deterministic UUID of an exact UTF-8 string as a string. */
+    public String generateUUIDAsString(String value) {
+        return generateUUID(value).toString();
+    }
+
+    /** Returns the deterministic UUID of length-prefixed parts as a string. */
+    public String generateUUIDAsString(Object... values) {
+        return generateUUID(values).toString();
+    }
+
+    /** Converts seconds and their nanosecond fraction without overflowing long arithmetic. */
+    private static BigInteger toNanos(long seconds, int nanos) {
+        return BigInteger.valueOf(seconds).multiply(NANOS_PER_SECOND).add(BigInteger.valueOf(nanos));
+    }
+}

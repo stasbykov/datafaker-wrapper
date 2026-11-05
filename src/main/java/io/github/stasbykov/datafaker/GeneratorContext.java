@@ -89,6 +89,16 @@ public final class GeneratorContext {
      */
     public TextDataGenerator texts() { return new TextDataGenerator(this); }
 
+    /** Creates a UUID generator using this clock and random stream. */
+    public UUIDDataGenerator uuids() {
+        return new UUIDDataGenerator(this);
+    }
+
+    /** Draws 64 random bits for internal generators from the shared stream. */
+    long nextLong() {
+        return random.nextLong();
+    }
+
     /** Returns the internal data provider for localized fields and regex generation. */
     DatafakerAdapter adapter() { return adapter; }
 

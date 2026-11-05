@@ -22,6 +22,7 @@ public final class DataGenerator {
     private final FinancialDataGenerator financial;
     private final AddressDataGenerator address;
     private final TextDataGenerator texts;
+    private final UUIDDataGenerator uuids;
 
     /** Builds the generator groups from a validated configuration snapshot. */
     private DataGenerator(Builder builder) {
@@ -34,6 +35,7 @@ public final class DataGenerator {
         financial = context.financial();
         address = context.address();
         texts = context.texts();
+        uuids = context.uuids();
     }
 
     /**
@@ -67,6 +69,12 @@ public final class DataGenerator {
     public AddressDataGenerator address() { return address; }
     /** Returns the text generator. Example: {@code data.texts().generateCurrencyDescription("Euro")}. */
     public TextDataGenerator texts() { return texts; }
+
+    /** Returns the UUID generator. Example: {@code data.uuids().generateUUID()}. */
+    public UUIDDataGenerator uuids() {
+        return uuids;
+    }
+
 
     /**
 

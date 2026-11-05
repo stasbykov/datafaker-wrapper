@@ -237,7 +237,7 @@ class GeneratorsTest {
     @Test void publicApiDoesNotExposeDatafaker() {
         List<Class<?>> api = List.of(DataGenerator.class, DataGenerator.Builder.class,
                 GeneratorContext.class, FinancialDataGenerator.class, StringDataGenerator.class,
-                AddressDataGenerator.class, TextDataGenerator.class, CurrencyData.class);
+                AddressDataGenerator.class, TextDataGenerator.class, UUIDDataGenerator.class, CurrencyData.class);
         for (Class<?> type : api) {
             for (var method : type.getDeclaredMethods()) {
                 if (Modifier.isPublic(method.getModifiers())) assertFalse(method.toGenericString().contains("net.datafaker"));

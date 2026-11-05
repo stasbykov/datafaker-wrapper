@@ -1,7 +1,7 @@
 # Datafaker Wrapper
 
 A Java library for generating test strings, currencies, financial references,
-address fields, and sample text. Configure the language, random seed, clock,
+address fields, UUIDs, and sample text. Configure the language, random seed, clock,
 and string length limit in one place.
 
 Requires Java 17 or later and Maven 3.9 or later. Uses Datafaker internally;
@@ -169,6 +169,77 @@ without automatic translation. `financial.currencies()` returns the immutable ca
 Leading zeros are allowed. These methods generate test values with the listed
 formats. They do not guarantee uniqueness, calculate payment-network check digits,
 or validate acquirer information.
+
+## UUIDs
+
+Use `data.uuids()` or `data.create(UUIDDataGenerator::new)` to obtain a
+`UUIDDataGenerator`. The short factory
+`DataGenerator.russianGenerator(UUIDDataGenerator::new)` also works.
+
+```java
+import java.time.Duration;
+import java.time.Instant;
+
+var uuids = data.uuids();
+var random = uuids.generateUUID();
+var currentMinute = uuids.generateUUID(Duration.ofMinutes(1));
+var atTime = uuids.generateUUID(
+        Instant.parse("2026-11-05T10:15:30Z"), Duration.ofMinutes(1));
+var named = uuids.generateUUID("order-42");
+var combined = uuids.generateUUID("order", 42, "payment");
+String logId = uuids.generateUUIDWithPrefix("test");
+String requestId = uuids.generateUUIDAsString(Duration.ofMinutes(1));
+```
+
+The no-argument method generates a **version 4** UUID from the shared random
+stream. A configured seed and the same call order reproduce the sequence.
+The prefix method joins a nonblank prefix, a hyphen, and a random UUID.
+These values are intended for tests and are not suitable as security tokens.
+
+All methods with a name or time window generate **version 3** UUIDs.
+They consume no random values and are independent of the seed and locale.
+Every `generateUUID` overload has a matching `generateUUIDAsString` overload.
+
+### Stable UUIDs within a time window
+
+Windows start at the Unix epoch and include their start but exclude their end.
+For a one-minute window, calls from 10:15:00 through 10:15:59.999999999 produce
+the same UUID. At 10:16:00, the window index changes. A call at 10:15:59 does
+not start a fresh 60-second period.
+
+The current-time overload reads the configured `Clock` on every call.
+Use `Clock.fixed(...)` for reproducible tests or supply an explicit `Instant`.
+The clock's zone does not affect an instant's window. Independent instances
+with the same window index return the same UUID.
+
+The index is calculated as floor(epoch nanoseconds / window nanoseconds).
+Its decimal string is encoded as UTF-8 and passed to `UUID.nameUUIDFromBytes`.
+Durations must be positive. Fractional-second windows, including a one-nanosecond
+window, are supported. Dates before 1970 use floor division, and large values
+are calculated without overflowing a long.
+
+Only the index is hashed. Different window sizes with the same index share
+a UUID, as does a direct string call with that decimal index. This is useful
+for global repeatability; it does not create a separate ID namespace per size.
+UUID hashes can theoretically collide.
+
+### Names and multiple parts
+
+A string is hashed exactly as supplied using UTF-8. Case and whitespace matter,
+and an empty string is allowed. Null strings and null argument arrays are rejected.
+
+For multiple parts, each nonnull value is converted with `toString()` and encoded
+as its UTF-16 string length, a colon, and its text. A null part uses `-1:`.
+For example, parts `"a", "b"` encode as `"1:a1:b"`. This framing distinguishes
+`("a|b", "c")` from `("a", "b|c")` and a null part from the text `"null"`.
+The direct string overload can reproduce a multipart UUID by hashing that
+encoded name. There is no separate namespace for multipart names.
+
+Parts must have stable string representations for repeatability. Values of
+different types with identical text are equivalent. Arrays and nested objects
+are not recursively serialized; convert them into stable text first.
+To use multipart encoding with one value, pass an explicit `Object[]`.
+A plain `generateUUID("name")` selects the string overload.
 
 ## Address fields
 

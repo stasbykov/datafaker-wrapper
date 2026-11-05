@@ -70,7 +70,7 @@ public final class DataGenerator {
     /** Returns the text generator. Example: {@code data.texts().generateCurrencyDescription("Euro")}. */
     public TextDataGenerator texts() { return texts; }
 
-    /** Returns the UUID generator. Example: {@code data.uuids().generateUUID()}. */
+    /** Returns the UUID generator. Example: {@code data.uuids().generateUUIDv4()}. */
     public UUIDDataGenerator uuids() {
         return uuids;
     }

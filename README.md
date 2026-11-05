@@ -181,24 +181,26 @@ import java.time.Duration;
 import java.time.Instant;
 
 var uuids = data.uuids();
-var random = uuids.generateUUID();
-var currentMinute = uuids.generateUUID(Duration.ofMinutes(1));
-var atTime = uuids.generateUUID(
+var random = uuids.generateUUIDv4();
+var currentMinute = uuids.generateUUIDv3ForWindow(Duration.ofMinutes(1));
+var atTime = uuids.generateUUIDv3ForWindow(
         Instant.parse("2026-11-05T10:15:30Z"), Duration.ofMinutes(1));
-var named = uuids.generateUUID("order-42");
-var combined = uuids.generateUUID("order", 42, "payment");
-String logId = uuids.generateUUIDWithPrefix("test");
-String requestId = uuids.generateUUIDAsString(Duration.ofMinutes(1));
+var named = uuids.generateUUIDv3FromName("order-42");
+var combined = uuids.generateUUIDv3FromParts("order", 42, "payment");
+String logId = uuids.generateUUIDv4WithPrefix("test");
+String requestId = uuids.generateUUIDv3ForWindow(Duration.ofMinutes(1)).toString();
 ```
 
-The no-argument method generates a **version 4** UUID from the shared random
+The `generateUUIDv4()` method generates a **version 4** UUID from the shared random
 stream. A configured seed and the same call order reproduce the sequence.
 The prefix method joins a nonblank prefix, a hyphen, and a random UUID.
 These values are intended for tests and are not suitable as security tokens.
 
-The `generateUUID` overloads with a name or time window generate **version 3** UUIDs.
+The `generateUUIDv3FromName`, `generateUUIDv3FromParts`, and
+`generateUUIDv3ForWindow` methods generate **version 3** UUIDs.
 They consume no random values and are independent of the seed and locale.
-Every `generateUUID` overload has a matching `generateUUIDAsString` overload.
+Use `generateUUIDv4AsString()` or `generateUUIDv7AsString()` for random UUID strings.
+For version 3 methods, call `.toString()` on the returned UUID.
 
 ### UUID version 7
 
@@ -229,7 +231,7 @@ strings or unsigned bytes; Java's UUID.compareTo uses signed long comparisons.
 For repeatable sequences, use the same seed, call order, and fixed clock
 or explicit instant. Repeating a call on one generator advances its random
 stream. For a stable ID within an epoch-aligned window, use the version 3
-`generateUUID(Duration)` API described below. Version 7 uses the same test-data
+`generateUUIDv3ForWindow(Duration)` API described below. Version 7 uses the same test-data
 random source as version 4 and is not intended for security tokens.
 
 ### Stable UUIDs within a time window
@@ -264,14 +266,14 @@ For multiple parts, each nonnull value is converted with `toString()` and encode
 as its UTF-16 string length, a colon, and its text. A null part uses `-1:`.
 For example, parts `"a", "b"` encode as `"1:a1:b"`. This framing distinguishes
 `("a|b", "c")` from `("a", "b|c")` and a null part from the text `"null"`.
-The direct string overload can reproduce a multipart UUID by hashing that
+The `generateUUIDv3FromName` method can reproduce a multipart UUID by hashing that
 encoded name. There is no separate namespace for multipart names.
 
 Parts must have stable string representations for repeatability. Values of
 different types with identical text are equivalent. Arrays and nested objects
 are not recursively serialized; convert them into stable text first.
-To use multipart encoding with one value, pass an explicit `Object[]`.
-A plain `generateUUID("name")` selects the string overload.
+Use `generateUUIDv3FromParts("name")` for a single encoded part.
+Use `generateUUIDv3FromName("name")` to hash the exact string instead.
 
 ## Address fields
 

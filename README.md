@@ -1,7 +1,7 @@
 # Datafaker Wrapper
 
 A Java library for generating test strings, currencies, financial references,
-address fields, and sample text. Configure the language, random seed, clock,
+address fields, UUIDs, and sample text. Configure the language, random seed, clock,
 and string length limit in one place.
 
 Requires Java 17 or later and Maven 3.9 or later. Uses Datafaker internally;
@@ -169,6 +169,110 @@ without automatic translation. `financial.currencies()` returns the immutable ca
 Leading zeros are allowed. These methods generate test values with the listed
 formats. They do not guarantee uniqueness, calculate payment-network check digits,
 or validate acquirer information.
+
+## UUIDs
+
+Use `data.uuids()` or `data.create(UUIDDataGenerator::new)` to obtain a
+`UUIDDataGenerator`. The short factory
+`DataGenerator.russianGenerator(UUIDDataGenerator::new)` also works.
+
+```java
+import java.time.Duration;
+import java.time.Instant;
+
+var uuids = data.uuids();
+var random = uuids.generateUUIDv4();
+var currentMinute = uuids.generateUUIDv3ForWindow(Duration.ofMinutes(1));
+var atTime = uuids.generateUUIDv3ForWindow(
+        Instant.parse("2026-11-05T10:15:30Z"), Duration.ofMinutes(1));
+var named = uuids.generateUUIDv3FromName("order-42");
+var combined = uuids.generateUUIDv3FromParts("order", 42, "payment");
+String logId = "test-" + uuids.generateUUIDv4();
+String requestId = uuids.generateUUIDv3ForWindow(Duration.ofMinutes(1)).toString();
+```
+
+The `generateUUIDv4()` method generates a **version 4** UUID from the shared random
+stream. A configured seed and the same call order reproduce the sequence.
+These values are intended for tests and are not suitable as security tokens.
+
+The `generateUUIDv3FromName`, `generateUUIDv3FromParts`, and
+`generateUUIDv3ForWindow` methods generate **version 3** UUIDs.
+They consume no random values and are independent of the seed and locale.
+All generation methods return `UUID`. Call `.toString()` for canonical text.
+To add a prefix, concatenate it with any generated UUID as shown above.
+
+### UUID version 7
+
+`generateUUIDv7()` combines the configured clock's Unix timestamp in milliseconds
+with new random bits from the shared seeded stream. Use it for time-based test
+identifiers. You can also supply an explicit instant:
+
+```java
+var uuid = data.uuids().generateUUIDv7();
+String requestId = data.uuids().generateUUIDv7().toString();
+var atTime = data.uuids().generateUUIDv7(
+        Instant.parse("2026-11-05T10:15:30Z"));
+String atTimeText = data.uuids().generateUUIDv7(
+        Instant.parse("2026-11-05T10:15:30Z")).toString();
+```
+
+The [RFC 9562 layout](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7)
+stores the timestamp in 48 bits and uses 74 random bits, plus the version and
+variant fields. Supported timestamps start at the Unix epoch, inclusive, and
+end at 2^48 milliseconds, exclusive. Earlier or later instants are rejected
+before consuming random values. Sub-millisecond precision is discarded.
+
+Calls in the same millisecond draw new random bits and have random order.
+Clock rollback is reflected in the timestamp. There is no monotonic counter.
+For timestamp ordering across the supported range, compare canonical UUID
+strings or unsigned bytes; Java's UUID.compareTo uses signed long comparisons.
+
+For repeatable sequences, use the same seed, call order, and fixed clock
+or explicit instant. Repeating a call on one generator advances its random
+stream. For a stable ID within an epoch-aligned window, use the version 3
+`generateUUIDv3ForWindow(Duration)` API described below. Version 7 uses the same test-data
+random source as version 4 and is not intended for security tokens.
+
+### Stable UUIDs within a time window
+
+Windows start at the Unix epoch and include their start but exclude their end.
+For a one-minute window, calls from 10:15:00 through 10:15:59.999999999 produce
+the same UUID. At 10:16:00, the window index changes. A call at 10:15:59 does
+not start a fresh 60-second period.
+
+The current-time overload reads the configured `Clock` on every call.
+Use `Clock.fixed(...)` for reproducible tests or supply an explicit `Instant`.
+The clock's zone does not affect an instant's window. Independent instances
+with the same window index return the same UUID.
+
+The index is calculated as floor(epoch nanoseconds / window nanoseconds).
+Its decimal string is encoded as UTF-8 and passed to `UUID.nameUUIDFromBytes`.
+Durations must be positive. Fractional-second windows, including a one-nanosecond
+window, are supported. Dates before 1970 use floor division, and large values
+are calculated without overflowing a long.
+
+Only the index is hashed. Different window sizes with the same index share
+a UUID, as does a direct string call with that decimal index. This is useful
+for global repeatability; it does not create a separate ID namespace per size.
+UUID hashes can theoretically collide.
+
+### Names and multiple parts
+
+A string is hashed exactly as supplied using UTF-8. Case and whitespace matter,
+and an empty string is allowed. Null strings and null argument arrays are rejected.
+
+For multiple parts, each nonnull value is converted with `toString()` and encoded
+as its UTF-16 string length, a colon, and its text. A null part uses `-1:`.
+For example, parts `"a", "b"` encode as `"1:a1:b"`. This framing distinguishes
+`("a|b", "c")` from `("a", "b|c")` and a null part from the text `"null"`.
+The `generateUUIDv3FromName` method can reproduce a multipart UUID by hashing that
+encoded name. There is no separate namespace for multipart names.
+
+Parts must have stable string representations for repeatability. Values of
+different types with identical text are equivalent. Arrays and nested objects
+are not recursively serialized; convert them into stable text first.
+Use `generateUUIDv3FromParts("name")` for a single encoded part.
+Use `generateUUIDv3FromName("name")` to hash the exact string instead.
 
 ## Address fields
 

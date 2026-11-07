@@ -10,6 +10,7 @@ import java.util.UUID;
 /**
  * Random version 4, time-based version 7, and deterministic version 3 UUIDs for test data.
  * Time windows are aligned to the Unix epoch, with inclusive start and exclusive end.
+ * All generation methods return UUID; call toString() for canonical text.
  * All deterministic methods are independent of the random seed and consume no random values.
  */
 public final class UUIDDataGenerator {
@@ -65,16 +66,6 @@ public final class UUIDDataGenerator {
                 | (context.nextLong() & 0x0000000000000fffL);
         long least = (context.nextLong() & 0x3fffffffffffffffL) | 0x8000000000000000L;
         return new UUID(most, least);
-    }
-
-    /** Returns a version 7 UUID for the configured clock as a canonical string. */
-    public String generateUUIDv7AsString() {
-        return generateUUIDv7().toString();
-    }
-
-    /** Returns a version 7 UUID for an explicit instant as a canonical string. */
-    public String generateUUIDv7AsString(Instant instant) {
-        return generateUUIDv7(instant).toString();
     }
 
     /**
@@ -153,26 +144,6 @@ public final class UUIDDataGenerator {
             }
         }
         return generateUUIDv3FromName(name.toString());
-    }
-
-    /**
-     * Generates a log identifier such as {@code test-550e8400-e29b-41d4-a716-446655440000}.
-     * The nonblank prefix is used exactly as supplied and joined to a random UUID with a hyphen.
-     *
-     * @param prefix nonnull prefix containing at least one non-whitespace character
-     * @return prefixed random UUID string
-     */
-    public String generateUUIDv4WithPrefix(String prefix) {
-        Objects.requireNonNull(prefix, "prefix");
-        if (prefix.isBlank()) {
-            throw new IllegalArgumentException("prefix must not be blank");
-        }
-        return prefix + "-" + generateUUIDv4();
-    }
-
-    /** Returns a random version 4 UUID in its canonical string form. */
-    public String generateUUIDv4AsString() {
-        return generateUUIDv4().toString();
     }
 
     /** Converts seconds and their nanosecond fraction without overflowing long arithmetic. */

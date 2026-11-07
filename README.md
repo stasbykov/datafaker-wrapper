@@ -187,20 +187,19 @@ var atTime = uuids.generateUUIDv3ForWindow(
         Instant.parse("2026-11-05T10:15:30Z"), Duration.ofMinutes(1));
 var named = uuids.generateUUIDv3FromName("order-42");
 var combined = uuids.generateUUIDv3FromParts("order", 42, "payment");
-String logId = uuids.generateUUIDv4WithPrefix("test");
+String logId = "test-" + uuids.generateUUIDv4();
 String requestId = uuids.generateUUIDv3ForWindow(Duration.ofMinutes(1)).toString();
 ```
 
 The `generateUUIDv4()` method generates a **version 4** UUID from the shared random
 stream. A configured seed and the same call order reproduce the sequence.
-The prefix method joins a nonblank prefix, a hyphen, and a random UUID.
 These values are intended for tests and are not suitable as security tokens.
 
 The `generateUUIDv3FromName`, `generateUUIDv3FromParts`, and
 `generateUUIDv3ForWindow` methods generate **version 3** UUIDs.
 They consume no random values and are independent of the seed and locale.
-Use `generateUUIDv4AsString()` or `generateUUIDv7AsString()` for random UUID strings.
-For version 3 methods, call `.toString()` on the returned UUID.
+All generation methods return `UUID`. Call `.toString()` for canonical text.
+To add a prefix, concatenate it with any generated UUID as shown above.
 
 ### UUID version 7
 
@@ -210,11 +209,11 @@ identifiers. You can also supply an explicit instant:
 
 ```java
 var uuid = data.uuids().generateUUIDv7();
-String requestId = data.uuids().generateUUIDv7AsString();
+String requestId = data.uuids().generateUUIDv7().toString();
 var atTime = data.uuids().generateUUIDv7(
         Instant.parse("2026-11-05T10:15:30Z"));
-String atTimeText = data.uuids().generateUUIDv7AsString(
-        Instant.parse("2026-11-05T10:15:30Z"));
+String atTimeText = data.uuids().generateUUIDv7(
+        Instant.parse("2026-11-05T10:15:30Z")).toString();
 ```
 
 The [RFC 9562 layout](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7)

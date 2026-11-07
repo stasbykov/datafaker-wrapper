@@ -183,16 +183,14 @@ class UUIDDataGeneratorTest {
 
     /** Factory methods expose the UUID generator through the same context as other groups. */
     @Test
-    void factoriesAndStringOutputWork() {
+    void factoriesWork() {
         var data = data(1);
         assertSame(data.uuids(), data.uuids());
         assertNotNull(DataGenerator.russianGenerator(UUIDDataGenerator::new).generateUUIDv4());
         assertNotNull(data.create(context -> context.uuids()).generateUUIDv4());
-        assertEquals(data(1).uuids().generateUUIDv4().toString(), data(1).uuids().generateUUIDv4AsString());
-        assertEquals("test-" + data(1).uuids().generateUUIDv4(), data(1).uuids().generateUUIDv4WithPrefix("test"));
     }
 
-    /** Invalid durations, null inputs, and blank prefixes fail at the public entry points. */
+    /** Invalid durations and null inputs fail at the public entry points. */
     @Test
     void invalidInputsAreRejected() {
         var uuids = data(1).uuids();
@@ -206,7 +204,5 @@ class UUIDDataGeneratorTest {
         assertThrows(NullPointerException.class, () -> uuids.generateUUIDv3ForWindow(Instant.EPOCH, null));
         assertThrows(NullPointerException.class, () -> uuids.generateUUIDv3FromName((String) null));
         assertThrows(NullPointerException.class, () -> uuids.generateUUIDv3FromParts((Object[]) null));
-        assertThrows(NullPointerException.class, () -> uuids.generateUUIDv4WithPrefix(null));
-        assertThrows(IllegalArgumentException.class, () -> uuids.generateUUIDv4WithPrefix(" "));
     }
 }

@@ -125,15 +125,13 @@ class UUIDv7Test {
         assertThrows(IllegalArgumentException.class, () -> generator(42, limit).generateUUIDv7());
     }
 
-    /** Checks string wrappers and factory construction through the main facade. */
+    /** Checks factory construction through the main facade. */
     @Test
-    void stringAndFactoryEntryPointsWork() {
+    void factoryEntryPointWorks() {
         Instant instant = Instant.parse("2026-11-05T10:15:30Z");
-        String expected = generator(42, instant).generateUUIDv7().toString();
-        assertEquals(expected, generator(42, instant).generateUUIDv7AsString());
-        assertEquals(expected, generator(42, Instant.EPOCH).generateUUIDv7AsString(instant));
+        UUID expected = generator(42, instant).generateUUIDv7();
         var custom = DataGenerator.builder().seed(42).clock(Clock.fixed(instant, ZoneOffset.UTC))
                 .build().create(UUIDDataGenerator::new);
-        assertEquals(expected, custom.generateUUIDv7AsString());
+        assertEquals(expected, custom.generateUUIDv7());
     }
 }
